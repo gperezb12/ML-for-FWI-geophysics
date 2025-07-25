@@ -51,28 +51,49 @@ def generate_interior_data(filename, var, nx=None, nz=None, device='cpu'):
         raise
 
 
-def sample_interior_data3(X_data, u_data, num_samples=1000,
-                         x_mean=500.0, x_std=150.0,  # increased std
-                         z_decay_rate=100000,
+import torch
+import torch
+
+def sample_interior_data(X_data, u_data, num_samples=1000,
+                         x_mean=500.0, x_std=100.0,
+                         z_decay_rate=0.025,
                          device='cpu'):
+    """
+    Sample (x,z) points from an existing dataset according to:
+      • x ~ Normal(mean=500, std=150)
+      • z = 1000 - y, y ~ Exponential(rate=0.05), clipped at z>=0
+
+    Removes any points where z > 950 before sampling.
+    Then picks u_data at those sampled indices.
+    """
+    # move to device
     X = X_data.to(device)
     u = u_data.to(device)
+
+    # extract coords (N,1)
     x_coords = X[:, 0:1]
-    
-    # Add checks
-    x_weights = torch.exp(-((x_coords - x_mean)**2) / (2 * x_std**2))
-    print(f"Min weight: {x_weights.min()}")
-    print(f"Max weight: {x_weights.max()}")
-    print(f"Sum of weights: {x_weights.sum()}")
-    
-    # Ensure weights are positive
-    x_weights = torch.clamp(x_weights, min=1e-10)
-    
-    probs = x_weights / x_weights.sum()
-    
-    # Verify probabilities
-    assert probs.sum() > 0, "Sum of probabilities must be positive"
-    assert torch.all(probs >= 0), "All probabilities must be non-negative"
-    
+    z_coords = X[:, 1:2]
+
+    # 0) filter out points where z > 950
+    mask = (z_coords <= 950.0).squeeze()  # shape (N,)
+    X = X[mask]
+    u = u[mask]
+    x_coords = X[:, 0:1]
+    z_coords = X[:, 1:2]
+
+    # 1) build sampling weights over the existing grid
+    #    a) Gaussian weight for x
+    x_weights = torch.exp(-((x_coords - x_mean) ** 2) / (2 * x_std ** 2))
+    #    b) Exponential weight for z (max at z=1000)
+    z_max = 1000.0
+    z_weights = torch.exp(-z_decay_rate * (z_max - z_coords))
+
+    # 2) combine and normalize
+    weights = (x_weights * z_weights).squeeze()    # shape (M,)
+    probs   = weights / weights.sum()
+
+    # 3) sample indices
     idx = torch.multinomial(probs, num_samples, replacement=True)
+
+    # 4) return sampled points + u’s
     return X[idx], u[idx]
