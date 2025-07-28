@@ -55,8 +55,8 @@ import torch
 import torch
 
 def sample_interior_data(X_data, u_data, num_samples=1000,
-                         x_mean=500.0, x_std=100.0,
-                         z_decay_rate=0.025,
+                         x_mean=500.0, x_std=250.0,
+                         z_decay_rate=0.00925,
                          device='cpu'):
     """
     Sample (x,z) points from an existing dataset according to:
