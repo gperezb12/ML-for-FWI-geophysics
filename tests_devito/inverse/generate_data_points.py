@@ -55,8 +55,8 @@ import torch
 import torch
 
 def sample_interior_data(X_data, u_data, num_samples=1000,
-                         x_mean=500.0, x_std=100.0,
-                         z_decay_rate=0.025,
+                         x_mean=0.0, x_std=0.5,
+                         z_decay_rate=4.0,
                          device='cpu'):
     """
     Sample (x,z) points from an existing dataset according to:
@@ -70,14 +70,8 @@ def sample_interior_data(X_data, u_data, num_samples=1000,
     X = X_data.to(device)
     u = u_data.to(device)
 
-    # extract coords (N,1)
-    x_coords = X[:, 0:1]
-    z_coords = X[:, 1:2]
 
-    # 0) filter out points where z > 950
-    mask = (z_coords <= 950.0).squeeze()  # shape (N,)
-    X = X[mask]
-    u = u[mask]
+
     x_coords = X[:, 0:1]
     z_coords = X[:, 1:2]
 
@@ -85,7 +79,7 @@ def sample_interior_data(X_data, u_data, num_samples=1000,
     #    a) Gaussian weight for x
     x_weights = torch.exp(-((x_coords - x_mean) ** 2) / (2 * x_std ** 2))
     #    b) Exponential weight for z (max at z=1000)
-    z_max = 1000.0
+    z_max = 0.0
     z_weights = torch.exp(-z_decay_rate * (z_max - z_coords))
 
     # 2) combine and normalize
